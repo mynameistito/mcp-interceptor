@@ -5,11 +5,11 @@
   "scripts": {
     "build": "react-router build",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
-    "deploy": "npm run build && wrangler deploy --minify",
+    "deploy": "bun run build && wrangler deploy --minify",
     "dev": "wrangler dev",
-    "postinstall": "npm run cf-typegen",
-    "preview": "npm run build && vite preview",
-    "typecheck": "npm run cf-typegen && react-router typegen && tsc",
+    "postinstall": "bun run cf-typegen",
+    "preview": "bun run build && vite preview",
+    "typecheck": "bun run cf-typegen && react-router typegen && tsc",
     "check": "ultracite check",
     "fix": "ultracite fix",
     "prepare": "lefthook install"
