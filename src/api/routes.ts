@@ -17,6 +17,31 @@ export interface MCPInterceptorStub {
   fetch(request: Request): Response | Promise<Response>;
 }
 
+/**
+ * Build the full proxy target URL by combining the configured target URL
+ * with the incoming request's subpath (after /proxy/:id) and query string.
+ */
+function buildProxyUrl(
+  targetUrl: string,
+  requestUrl: string,
+  interceptorId: string
+): string {
+  const targetUrlObj = new URL(targetUrl);
+  const incomingUrl = new URL(requestUrl);
+  const proxyPrefix = `/proxy/${interceptorId}`;
+  const subpath = incomingUrl.pathname.startsWith(proxyPrefix)
+    ? incomingUrl.pathname.slice(proxyPrefix.length)
+    : "";
+
+  const basePath = targetUrlObj.pathname.endsWith("/")
+    ? targetUrlObj.pathname.slice(0, -1)
+    : targetUrlObj.pathname;
+  targetUrlObj.pathname = subpath ? `${basePath}${subpath}` : basePath || "/";
+  targetUrlObj.search = incomingUrl.search;
+
+  return targetUrlObj.toString();
+}
+
 export default function createApiRoutes() {
   const app = new Hono<{ Bindings: CloudflareBindings }>();
 
@@ -185,16 +210,13 @@ export default function createApiRoutes() {
       c.executionCtx.waitUntil(durableObject.logRequest(requestLog));
 
       try {
-        // Create the target URL by replacing the host and preserving path/query
-        const targetUrlObj = new URL(targetUrl);
+        // Build proxy URL preserving the incoming subpath and query string
+        const proxyUrl = buildProxyUrl(targetUrl, request.url, interceptorId);
 
-        // Extract the path after /proxy/:id
-        const proxyUrl = targetUrlObj;
-
-        console.log("Proxying request to:", proxyUrl.toString());
+        console.log("Proxying request to:", proxyUrl);
 
         // Create new request to target
-        const proxyRequest = new Request(proxyUrl.toString(), {
+        const proxyRequest = new Request(proxyUrl, {
           method: request.method,
           headers: request.headers,
           body: request.body,
