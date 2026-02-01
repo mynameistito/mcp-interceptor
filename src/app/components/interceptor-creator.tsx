@@ -19,7 +19,8 @@ export function InterceptorCreator({
 
   const normalizeUrl = (url: string) => {
     const trimmed = url.trim();
-    if (!(trimmed.startsWith("http://") || trimmed.startsWith("https://"))) {
+    const lower = trimmed.toLowerCase();
+    if (!(lower.startsWith("http://") || lower.startsWith("https://"))) {
       return `https://${trimmed}`;
     }
     return trimmed;
