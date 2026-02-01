@@ -47,10 +47,15 @@ export default function createApiRoutes() {
         }
 
         // Validate URL format
+        let url: URL;
         try {
-          new URL(targetUrl);
+          url = new URL(targetUrl);
         } catch {
           return c.json({ error: "Invalid URL format" }, 400);
+        }
+
+        if (url.protocol !== "http:" && url.protocol !== "https:") {
+          return c.json({ error: "Only http(s) URLs are allowed" }, 400);
         }
 
         // Generate a shorter random interceptor ID
