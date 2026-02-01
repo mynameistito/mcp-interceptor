@@ -191,7 +191,7 @@ export function InterceptorCreator({
                         onChange={(e) => setTargetUrl(e.target.value)}
                         placeholder="https://your-mcp-server.com"
                         required
-                        type="url"
+                        type="text"
                         value={targetUrl}
                       />
                       <div className="absolute top-1/2 right-4 -translate-y-1/2 transform">

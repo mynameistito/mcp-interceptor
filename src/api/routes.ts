@@ -21,7 +21,12 @@ function buildProxyUrl(
     ? targetUrlObj.pathname.slice(0, -1)
     : targetUrlObj.pathname;
   targetUrlObj.pathname = subpath ? `${basePath}${subpath}` : basePath || "/";
-  targetUrlObj.search = incomingUrl.search;
+
+  // Merge incoming query params into the target's existing params
+  // (incoming values override duplicates, but configured params are preserved)
+  for (const [key, value] of incomingUrl.searchParams) {
+    targetUrlObj.searchParams.set(key, value);
+  }
 
   return targetUrlObj.toString();
 }
@@ -67,8 +72,8 @@ export default function createApiRoutes() {
           return c.json({ error: "Only http(s) URLs are allowed" }, 400);
         }
 
-        // Generate a shorter random interceptor ID
-        const interceptorId = crypto.randomUUID().substring(0, 8);
+        // Generate a unique interceptor ID
+        const interceptorId = crypto.randomUUID();
 
         // Get the Durable Object for this interceptor
         const durableObjectId = c.env.MCP_INTERCEPTOR.idFromName(interceptorId);
