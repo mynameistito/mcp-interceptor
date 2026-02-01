@@ -7,7 +7,7 @@
 import { readdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 
-const TARGET_PATTERNS = [/^tmpclaude-/, /^nul$/];
+const TARGET_PATTERNS = [/^tmpclaude-/, /^nul$/i];
 const SKIP_DIRS = new Set(["node_modules", ".git"]);
 
 function shouldDeleteFile(filename: string): boolean {
@@ -38,5 +38,15 @@ async function cleanup(dir: string): Promise<void> {
 }
 
 (async () => {
-  await cleanup(".");
+  console.log("Starting cleanup...");
+  try {
+    await cleanup(".");
+    console.log("Cleanup completed successfully");
+  } catch (error) {
+    console.error(
+      "Cleanup failed:",
+      error instanceof Error ? error.message : String(error)
+    );
+    process.exit(1);
+  }
 })();

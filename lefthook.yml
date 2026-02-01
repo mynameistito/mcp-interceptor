@@ -1,4 +1,5 @@
 pre-commit:
+  parallel: true
   jobs:
     - run: bunx ultracite fix
       glob:
@@ -16,4 +17,5 @@ pre-commit:
         - "**/*.ts"
         - "**/*.tsx"
 
+    # cleanup runs on every commit intentionally to remove build artifacts
     - run: bun run scripts/cleanup.ts

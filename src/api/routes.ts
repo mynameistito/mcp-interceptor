@@ -52,34 +52,41 @@ export default function createApiRoutes() {
   app.post(
     "/api/interceptors",
     async (c: Context<{ Bindings: CloudflareBindings }>) => {
+      // Parse and validate JSON body
+      let body: { targetUrl?: string };
       try {
-        const body = (await c.req.json()) as { targetUrl?: string };
-        const { targetUrl } = body;
+        body = (await c.req.json()) as { targetUrl?: string };
+      } catch (_error) {
+        return c.json({ error: "Invalid JSON" }, 400);
+      }
 
-        if (!targetUrl || typeof targetUrl !== "string") {
-          return c.json({ error: "Target URL is required" }, 400);
-        }
+      const { targetUrl } = body;
 
-        // Validate URL format
-        let url: URL;
-        try {
-          url = new URL(targetUrl);
-        } catch {
-          return c.json({ error: "Invalid URL format" }, 400);
-        }
+      if (!targetUrl || typeof targetUrl !== "string") {
+        return c.json({ error: "Target URL is required" }, 400);
+      }
 
-        if (url.protocol !== "http:" && url.protocol !== "https:") {
-          return c.json({ error: "Only http(s) URLs are allowed" }, 400);
-        }
+      // Validate URL format
+      let url: URL;
+      try {
+        url = new URL(targetUrl);
+      } catch {
+        return c.json({ error: "Invalid URL format" }, 400);
+      }
 
-        // Generate a unique interceptor ID
-        const interceptorId = crypto.randomUUID();
+      if (url.protocol !== "http:" && url.protocol !== "https:") {
+        return c.json({ error: "Only http(s) URLs are allowed" }, 400);
+      }
 
-        // Get the Durable Object for this interceptor
-        const durableObjectId = c.env.MCP_INTERCEPTOR.idFromName(interceptorId);
-        const durableObject = c.env.MCP_INTERCEPTOR.get(durableObjectId);
+      // Generate a unique interceptor ID
+      const interceptorId = crypto.randomUUID();
 
-        // Set the target URL using RPC
+      // Get the Durable Object for this interceptor
+      const durableObjectId = c.env.MCP_INTERCEPTOR.idFromName(interceptorId);
+      const durableObject = c.env.MCP_INTERCEPTOR.get(durableObjectId);
+
+      // Set the target URL using RPC
+      try {
         const result = await durableObject.setTargetUrl(targetUrl);
 
         if (!result.success) {
@@ -95,8 +102,9 @@ export default function createApiRoutes() {
           monitorUrl: `${baseUrl}/monitor/${interceptorId}`,
           createdAt: new Date().toISOString(),
         });
-      } catch (_error) {
-        return c.json({ error: "Invalid JSON" }, 400);
+      } catch (error) {
+        console.error("Durable Object error:", error);
+        return c.json({ error: "Internal server error" }, 500);
       }
     }
   );
@@ -214,32 +222,67 @@ export default function createApiRoutes() {
         // Make the request to the target
         const response = await fetch(proxyRequest);
 
-        // Log the response
+        // Log the response (non-blocking)
         const responseHeaders: Record<string, string> = {};
         response.headers.forEach((value, key) => {
           responseHeaders[key] = value;
         });
 
-        let responseBody: string | undefined;
         const responseClone = response.clone();
-        try {
-          responseBody = await responseClone.text();
-        } catch {
-          responseBody = "[Binary data]";
-        }
 
-        const responseLog = {
-          id: `${requestId}-response`,
-          timestamp: Date.now(),
-          direction: "response" as const,
-          status: response.status,
-          statusText: response.statusText,
-          headers: responseHeaders,
-          body: responseBody,
-        };
+        // Background task to read response body and log
+        const backgroundPromise = (async () => {
+          let responseBody: string | undefined;
 
-        // Log the response using RPC
-        c.executionCtx.waitUntil(durableObject.logRequest(responseLog));
+          // Detect streaming or binary responses
+          const contentType = responseClone.headers.get("content-type") || "";
+          const isStreaming =
+            contentType.includes("text/event-stream") ||
+            contentType.includes("application/octet-stream") ||
+            responseClone.body instanceof ReadableStream;
+
+          if (isStreaming) {
+            responseBody = contentType.includes("text/event-stream")
+              ? "[Streamed]"
+              : "[Binary data]";
+          } else {
+            // Read text with defensive size limit (1MB) and timeout (5s)
+            try {
+              const timeoutPromise = new Promise<string>((_, reject) => {
+                setTimeout(
+                  () => reject(new Error("Response body read timeout")),
+                  5000
+                );
+              });
+              const textPromise = responseClone.text();
+              responseBody = await Promise.race([textPromise, timeoutPromise]);
+
+              // Truncate long bodies (max 100KB)
+              const MAX_BODY_SIZE = 100_000;
+              if (responseBody.length > MAX_BODY_SIZE) {
+                responseBody = `${responseBody.slice(0, MAX_BODY_SIZE)}\n[...truncated]`;
+              }
+            } catch (error) {
+              console.error("Error reading response body:", error);
+              responseBody = "[Error reading body]";
+            }
+          }
+
+          const responseLog = {
+            id: `${requestId}-response`,
+            timestamp: Date.now(),
+            direction: "response" as const,
+            status: response.status,
+            statusText: response.statusText,
+            headers: responseHeaders,
+            body: responseBody,
+          };
+
+          // Log the response using RPC
+          await durableObject.logRequest(responseLog);
+        })();
+
+        c.executionCtx.waitUntil(backgroundPromise);
 
         return response;
       } catch (error) {
