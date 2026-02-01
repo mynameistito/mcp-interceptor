@@ -4,11 +4,10 @@ import createApiRoutes from "./api/routes";
 
 const app = new Hono<{ Bindings: CloudflareBindings }>();
 
-// Mount API routes
+// Mount API routes at root — createApiRoutes defines the full paths
+// (e.g. /api/interceptors, /proxy/:id/*, /monitor/:id)
 const apiRoutes = createApiRoutes();
-app.route("/api", apiRoutes);
-app.route("/proxy", apiRoutes);
-app.route("/monitor", apiRoutes);
+app.route("/", apiRoutes);
 
 // Handle React Router SSR
 const reactRouterHandler = createRequestHandler(

@@ -55,13 +55,13 @@ export default function createApiRoutes() {
     })
   );
 
-  app.get("/", (c: Context<{ Bindings: CloudflareBindings }>) => {
+  app.get("/api", (c: Context<{ Bindings: CloudflareBindings }>) => {
     return c.text("Hello, World! Served from Hono!");
   });
 
   // Create a new MCP interceptor
   app.post(
-    "/interceptors",
+    "/api/interceptors",
     async (c: Context<{ Bindings: CloudflareBindings }>) => {
       try {
         const body = (await c.req.json()) as { targetUrl?: string };
@@ -114,7 +114,7 @@ export default function createApiRoutes() {
 
   // Get interceptor info
   app.get(
-    "/interceptors/:id",
+    "/api/interceptors/:id",
     async (c: Context<{ Bindings: CloudflareBindings }>) => {
       const interceptorId = c.req.param("id");
 
@@ -136,7 +136,7 @@ export default function createApiRoutes() {
 
   // Clear logs for an interceptor
   app.delete(
-    "/interceptors/:id/logs",
+    "/api/interceptors/:id/logs",
     async (c: Context<{ Bindings: CloudflareBindings }>) => {
       const interceptorId = c.req.param("id");
 
@@ -278,21 +278,28 @@ export default function createApiRoutes() {
     }
   );
 
-  // Handle monitor WebSocket connections
-  app.get("/monitor/:id", (c: Context<{ Bindings: CloudflareBindings }>) => {
-    const upgradeHeader = c.req.header("upgrade");
-    if (upgradeHeader !== "websocket") {
-      return c.text("Expected Upgrade: websocket", 426);
+  // Handle monitor WebSocket connections (only WebSocket upgrades;
+  // non-upgrade requests are left unhandled so they fall through to SSR)
+  app.get(
+    "/monitor/:id",
+    async (c: Context<{ Bindings: CloudflareBindings }>, next) => {
+      const upgradeHeader = c.req.header("upgrade");
+      if (upgradeHeader?.toLowerCase() !== "websocket") {
+        // Not a WebSocket upgrade — skip so the React Router SSR handler
+        // can serve the page instead.
+        await next();
+        return;
+      }
+
+      const interceptorId = c.req.param("id");
+
+      const durableObjectId = c.env.MCP_INTERCEPTOR.idFromName(interceptorId);
+      const durableObject = c.env.MCP_INTERCEPTOR.get(durableObjectId);
+
+      // Forward the WebSocket upgrade request to the Durable Object
+      return durableObject.fetch(c.req.raw);
     }
-
-    const interceptorId = c.req.param("id");
-
-    const durableObjectId = c.env.MCP_INTERCEPTOR.idFromName(interceptorId);
-    const durableObject = c.env.MCP_INTERCEPTOR.get(durableObjectId);
-
-    // Forward the WebSocket upgrade request to the Durable Object
-    return durableObject.fetch(c.req.raw);
-  });
+  );
 
   // Helper function to parse a single line from streaming response
   const tryParseStreamLine = (line: string): unknown => {
@@ -494,7 +501,7 @@ export default function createApiRoutes() {
 
   // Validate MCP server endpoint
   app.post(
-    "/validate-mcp",
+    "/api/validate-mcp",
     async (c: Context<{ Bindings: CloudflareBindings }>) => {
       try {
         const body = (await c.req.json()) as { targetUrl?: string };
