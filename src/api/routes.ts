@@ -78,8 +78,8 @@ export default function createApiRoutes() {
         return c.json({ error: "Only http(s) URLs are allowed" }, 400);
       }
 
-      // Generate a unique interceptor ID
-      const interceptorId = crypto.randomUUID();
+      // Generate a unique interceptor ID (8 chars for readability)
+      const interceptorId = crypto.randomUUID().substring(0, 8);
 
       // Get the Durable Object for this interceptor
       const durableObjectId = c.env.MCP_INTERCEPTOR.idFromName(interceptorId);
