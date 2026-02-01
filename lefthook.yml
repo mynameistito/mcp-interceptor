@@ -1,15 +1,5 @@
 pre-commit:
   jobs:
-    - run: npx ultracite fix
-      glob: 
-        - "*.js"
-        - "*.jsx"
-        - "*.ts"
-        - "*.tsx"
-        - "*.json"
-        - "*.jsonc"
-        - "*.css"
-      stage_fixed: true
     - run: bunx ultracite fix
       glob:
         - "**/*.js"
@@ -20,3 +10,7 @@ pre-commit:
         - "**/*.jsonc"
         - "**/*.css"
       stage_fixed: true
+    - run: bunx tsc --noEmit
+      glob:
+        - "**/*.ts"
+        - "**/*.tsx"

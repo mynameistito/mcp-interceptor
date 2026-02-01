@@ -24,7 +24,7 @@
       "~/*": ["./src/app/*"]
     },
     "lib": ["DOM", "DOM.Iterable", "ES2022", "WebWorker"],
-    "types": ["./worker-configuration.d.ts", "node", "vite/client"],
+    "types": ["./worker-configuration.d.ts", "vite/client"],
     "esModuleInterop": true,
     "resolveJsonModule": true
   }

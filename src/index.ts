@@ -2,6 +2,10 @@ import { type Context, Hono } from "hono";
 import { createRequestHandler } from "react-router";
 import createApiRoutes from "./api/routes";
 
+// Re-export the Durable Object class so Wrangler can resolve it from the main module
+// biome-ignore lint/performance/noBarrelFile: Wrangler requires DO classes exported from main module
+export { MCPInterceptorDurableObject } from "./durable-objects/mcp-interceptor";
+
 const app = new Hono<{ Bindings: CloudflareBindings }>();
 
 // Mount API routes at root — createApiRoutes defines the full paths

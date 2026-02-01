@@ -1,9 +1,4 @@
-// biome-ignore lint/suspicious/noExplicitAny: Cloudflare runtime types
-declare const DurableObject: any;
-declare const WebSocketPair: new () => {
-  0: WebSocket;
-  1: WebSocket;
-};
+import { DurableObject } from "cloudflare:workers";
 
 export interface InterceptorLog {
   id: string;
@@ -26,13 +21,9 @@ export class MCPInterceptorDurableObject extends DurableObject {
   private readonly monitors = new Map<WebSocket, MonitorSession>();
   private logs: InterceptorLog[] = [];
   private targetUrl: string | null = null;
-  // biome-ignore lint/suspicious/noExplicitAny: Cloudflare runtime types
-  ctx: any;
 
-  // biome-ignore lint/suspicious/noExplicitAny: Cloudflare runtime types
-  constructor(ctx: any, env: Record<string, unknown>) {
+  constructor(ctx: DurableObjectState, env: CloudflareBindings) {
     super(ctx, env);
-    this.ctx = ctx;
 
     console.log(`MCPInterceptorDurableObject initialized with ID: ${ctx.id}`);
     console.log("Restoring existing WebSocket monitor sessions...");
@@ -56,7 +47,7 @@ export class MCPInterceptorDurableObject extends DurableObject {
     }
 
     // Initialize logs from storage if needed (fire and forget)
-    this.initializeFromStorage().catch((error) => {
+    this.initializeFromStorage().catch((error: unknown) => {
       console.error("Failed to initialize from storage:", error);
     });
   }
@@ -65,7 +56,8 @@ export class MCPInterceptorDurableObject extends DurableObject {
     try {
       // Load target URL from storage
       if (!this.targetUrl) {
-        this.targetUrl = (await this.ctx.storage.get("targetUrl")) || null;
+        this.targetUrl =
+          (await this.ctx.storage.get<string>("targetUrl")) ?? null;
       }
     } catch (error) {
       console.error("Error initializing from storage:", error);
@@ -97,7 +89,8 @@ export class MCPInterceptorDurableObject extends DurableObject {
   }> {
     // Load target URL from storage if not in memory
     if (!this.targetUrl) {
-      this.targetUrl = (await this.ctx.storage.get("targetUrl")) || null;
+      this.targetUrl =
+        (await this.ctx.storage.get<string>("targetUrl")) ?? null;
     }
 
     return {
@@ -115,7 +108,8 @@ export class MCPInterceptorDurableObject extends DurableObject {
   // RPC method to get the target URL
   async getTargetUrl(): Promise<string | null> {
     if (!this.targetUrl) {
-      this.targetUrl = (await this.ctx.storage.get("targetUrl")) || null;
+      this.targetUrl =
+        (await this.ctx.storage.get<string>("targetUrl")) ?? null;
     }
     return this.targetUrl;
   }
@@ -139,23 +133,20 @@ export class MCPInterceptorDurableObject extends DurableObject {
     return new Response("Not found", { status: 404 });
   }
 
-  // biome-ignore lint/suspicious/noExplicitAny: Cloudflare runtime types
-  private handleWebSocketUpgrade(request: Request): any {
+  private handleWebSocketUpgrade(request: Request): Response {
     const webSocketPair = new WebSocketPair();
-    // biome-ignore lint/suspicious/noExplicitAny: Cloudflare WebSocket types
-    const [client, server] = [webSocketPair[0], webSocketPair[1]] as any[];
+    const [client, server] = [webSocketPair[0], webSocketPair[1]];
 
     // Use acceptWebSocket() for hibernation support instead of ws.accept()
     // This informs the runtime that this WebSocket is hibernatable, so the
     // Durable Object can be evicted from memory during periods of inactivity
-    // biome-ignore lint/suspicious/noExplicitAny: Cloudflare runtime method
-    (this.ctx as any).acceptWebSocket(server);
+    this.ctx.acceptWebSocket(server);
 
     // Get interceptor ID from URL
     const url = new URL(request.url);
     const interceptorId = url.pathname.split("/")[2]; // Format is /monitor/interceptor-id
 
-    const sessionData = {
+    const sessionData: MonitorSession = {
       interceptorId,
       connectedAt: Date.now(),
     };
@@ -164,24 +155,18 @@ export class MCPInterceptorDurableObject extends DurableObject {
     this.monitors.set(server, sessionData);
 
     // Serialize attachment for hibernation recovery
-    // biome-ignore lint/suspicious/noExplicitAny: Cloudflare WebSocket serialization
-    (server as any).serializeAttachment(sessionData);
+    server.serializeAttachment(sessionData);
 
     // Send existing logs to the new monitor
-    // biome-ignore lint/suspicious/noExplicitAny: Cloudflare WebSocket send method
-    (server as any).send(
+    server.send(
       JSON.stringify({
         type: "initial_logs",
         logs: this.logs,
       })
     );
 
-    const responseInit = {
-      status: 101,
-      webSocket: client,
-    };
-    // biome-ignore lint/suspicious/noExplicitAny: Cloudflare Response type
-    return new Response(null, responseInit as any);
+    // biome-ignore lint/suspicious/noExplicitAny: Cloudflare Response with webSocket field
+    return new Response(null, { status: 101, webSocket: client } as any);
   }
 
   private addLog(log: InterceptorLog): void {

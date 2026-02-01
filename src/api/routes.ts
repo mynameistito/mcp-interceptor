@@ -1,21 +1,5 @@
 import { type Context, Hono } from "hono";
 import { cors } from "hono/cors";
-import type { InterceptorLog } from "../durable-objects/mcp-interceptor";
-
-export interface MCPInterceptorStub {
-  setTargetUrl(
-    targetUrl: string
-  ): Promise<{ success: boolean; error?: string }>;
-  getInfo(): Promise<{
-    targetUrl: string | null;
-    monitorCount: number;
-    logCount: number;
-  }>;
-  logRequest(log: InterceptorLog): Promise<void>;
-  getTargetUrl(): Promise<string | null>;
-  clearLogs(): void;
-  fetch(request: Request): Response | Promise<Response>;
-}
 
 /**
  * Build the full proxy target URL by combining the configured target URL
