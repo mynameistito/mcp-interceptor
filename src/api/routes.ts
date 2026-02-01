@@ -182,7 +182,7 @@ export default function createApiRoutes() {
       };
 
       // Log the request using RPC
-      durableObject.logRequest(requestLog);
+      c.executionCtx.waitUntil(durableObject.logRequest(requestLog));
 
       try {
         // Create the target URL by replacing the host and preserving path/query
@@ -228,7 +228,7 @@ export default function createApiRoutes() {
         };
 
         // Log the response using RPC
-        durableObject.logRequest(responseLog);
+        c.executionCtx.waitUntil(durableObject.logRequest(responseLog));
 
         return response;
       } catch (error) {
@@ -246,7 +246,7 @@ export default function createApiRoutes() {
         };
 
         // Log the error using RPC
-        durableObject.logRequest(errorLog);
+        c.executionCtx.waitUntil(durableObject.logRequest(errorLog));
 
         return new Response(errorLog.body, {
           status: 500,
