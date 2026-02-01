@@ -26,41 +26,6 @@ export function InterceptorCreator({
     return trimmed;
   };
 
-  const validateMcpServer = async (url: string) => {
-    try {
-      const response = await fetch("/api/validate-mcp", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          targetUrl: url,
-        }),
-      });
-
-      const data = (await response.json()) as {
-        valid?: boolean;
-        error?: string;
-      };
-
-      if (!response.ok) {
-        throw new Error(data.error || "Server validation failed");
-      }
-
-      if (!data.valid) {
-        throw new Error(data.error || "Server is not a valid MCP server");
-      }
-
-      return true;
-    } catch (err) {
-      throw new Error(
-        err instanceof Error
-          ? err.message
-          : "The URL does not appear to be a valid MCP server. Please check the URL and ensure the server supports the MCP protocol."
-      );
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!targetUrl.trim()) {
@@ -76,9 +41,6 @@ export function InterceptorCreator({
 
       // Validate URL format
       new URL(normalizedUrl);
-
-      // Validate that it's an MCP server
-      await validateMcpServer(normalizedUrl);
 
       const response = await fetch("/api/interceptors", {
         method: "POST",

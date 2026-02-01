@@ -7,6 +7,8 @@ import type {
   MonitorSession,
 } from "./durable-objects/mcp-interceptor";
 
+const MONITOR_PATH_REGEX = /^\/monitor\/([a-z0-9-]+)$/i;
+
 export class MCPInterceptorDurableObject extends DurableObject {
   private readonly monitors = new Map<WebSocket, MonitorSession>();
   private logs: InterceptorLog[] = [];
@@ -134,7 +136,16 @@ export class MCPInterceptorDurableObject extends DurableObject {
 
     // Get interceptor ID from URL
     const url = new URL(request.url);
-    const interceptorId = url.pathname.split("/")[2]; // Format is /monitor/interceptor-id
+    const pathMatch = url.pathname.match(MONITOR_PATH_REGEX);
+    if (!pathMatch) {
+      server.close(
+        1000,
+        "Invalid URL format. Expected: /monitor/interceptor-id"
+      );
+      // biome-ignore lint/suspicious/noExplicitAny: Cloudflare Response with webSocket field
+      return new Response(null, { status: 101, webSocket: client } as any);
+    }
+    const interceptorId = pathMatch[1];
 
     const sessionData: MonitorSession = {
       interceptorId,

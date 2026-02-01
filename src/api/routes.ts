@@ -66,16 +66,15 @@ export default function createApiRoutes() {
         return c.json({ error: "Target URL is required" }, 400);
       }
 
-      // Validate URL format
+      // Validate URL format and protocol
       let url: URL;
       try {
         url = new URL(targetUrl);
+        if (url.protocol !== "http:" && url.protocol !== "https:") {
+          return c.json({ error: "Only http(s) URLs are allowed" }, 400);
+        }
       } catch {
         return c.json({ error: "Invalid URL format" }, 400);
-      }
-
-      if (url.protocol !== "http:" && url.protocol !== "https:") {
-        return c.json({ error: "Only http(s) URLs are allowed" }, 400);
       }
 
       // Generate a unique interceptor ID (8 chars for readability)
@@ -248,13 +247,16 @@ export default function createApiRoutes() {
           } else {
             // Read text with defensive size limit (1MB) and timeout (5s)
             try {
+              const textPromise = responseClone.text();
               const timeoutPromise = new Promise<string>((_, reject) => {
                 setTimeout(
                   () => reject(new Error("Response body read timeout")),
                   5000
                 );
               });
-              const textPromise = responseClone.text();
+              textPromise.catch(() => {
+                // Suppress unhandled rejection when timeout wins the race
+              });
               responseBody = await Promise.race([textPromise, timeoutPromise]);
 
               // Truncate long bodies (max 100KB)
@@ -499,7 +501,7 @@ export default function createApiRoutes() {
             },
           },
         }),
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(5000),
       });
 
       console.log("MCP server response status:", response.status);

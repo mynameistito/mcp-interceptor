@@ -2,6 +2,7 @@
   "name": "mcp-interceptor",
   "private": true,
   "type": "module",
+  "packageManager": "bun@1.3.8",
   "scripts": {
     "build": "react-router build",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
