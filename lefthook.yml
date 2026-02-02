@@ -1,5 +1,4 @@
 pre-commit:
-  parallel: true
   jobs:
     - run: bunx ultracite fix
       glob:

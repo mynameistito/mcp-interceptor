@@ -254,10 +254,10 @@ export default function createApiRoutes() {
                   5000
                 );
               });
-              textPromise.catch(() => {
-                // Suppress unhandled rejection when timeout wins the race
-              });
-              responseBody = await Promise.race([textPromise, timeoutPromise]);
+              responseBody = await Promise.race([
+                textPromise.catch(() => "[Error reading body]"),
+                timeoutPromise,
+              ]);
 
               // Truncate long bodies (max 100KB)
               const MAX_BODY_SIZE = 100_000;
